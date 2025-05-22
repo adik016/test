@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mines Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Custom CSS for Telegram-like styling and theme support */
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #888888;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #efefef;
+            --tg-theme-header-bg-color: #f0f0f0; /* Custom for header */
+            --tg-theme-cell-bg-color: #e0e0e0; /* Custom for cells */
+            --tg-theme-cell-border-color: #cccccc; /* Custom for cell borders */
+            --tg-theme-star-color: #fbd38d; /* Gold for stars */
+            --tg-theme-mine-color: #a0aec0; /* Grey for mines */
+            --tg-theme-opened-star-bg: #38a169; /* Green for opened star */
+            --tg-theme-mine-bg: #e53e3e; /* Red for mine */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow-y: auto; /* Allow scrolling for smaller screens */
+        }
+
+        .game-container {
+            background-color: var(--tg-theme-secondary-bg-color);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Soft shadow */
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--tg-theme-header-bg-color);
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--tg-theme-text-color);
+        }
+
+        .header .back-button {
+            background: none;
+            border: none;
+            color: var(--tg-theme-link-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease;
+        }
+        .header .back-button:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background-color: var(--tg-theme-bg-color);
+            border-radius: 0.75rem;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .multiplier-display {
+            background-color: var(--tg-theme-bg-color);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--tg-theme-text-color);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .multiplier-display span {
+            font-size: 1.6rem;
+            color: var(--tg-theme-link-color);
+        }
+        .multiplier-display #next-multiplier {
+            font-size: 0.85rem;
+            color: var(--tg-theme-hint-color);
+            margin-top: 0.25rem;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.4rem;
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            max-width: 400px; /* Limit grid size for better mobile view */
+            margin: 0 auto;
+        }
+        .grid-cell {
+            background-color: var(--tg-theme-cell-bg-color);
+            border-radius: 0.6rem; /* Rounded corners for cells */
+            aspect-ratio: 1 / 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.2rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15); /* Inner shadow */
+            border: 1px solid var(--tg-theme-cell-border-color);
+        }
+        .grid-cell:hover:not(.opened):not(.disabled) {
+            background-color: var(--tg-theme-hint-color);
+            transform: translateY(-2px);
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+        .grid-cell.opened {
+            cursor: default;
+            background-color: var(--tg-theme-opened-star-bg);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            border-color: var(--tg-theme-opened-star-bg);
+        }
+        .grid-cell.mine {
+            background-color: var(--tg-theme-mine-bg);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            border-color: var(--tg-theme-mine-bg);
+        }
+        .grid-cell.revealed-mine {
+            background-color: var(--tg-theme-mine-bg);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            border-color: var(--tg-theme-mine-bg);
+        }
+        .grid-cell.disabled {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        .star-icon {
+            color: var(--tg-theme-star-color);
+            text-shadow: 0 0 8px rgba(251, 211, 141, 0.6);
+        }
+        .mine-icon {
+            color: var(--tg-theme-mine-color);
+        }
+
+        .control-panel {
+            background-color: var(--tg-theme-bg-color);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .option-group label {
+            font-weight: bold;
+            color: var(--tg-theme-text-color);
+            font-size: 0.9rem;
+        }
+        .option-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        .option-button {
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.6rem;
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease, transform 0.1s ease;
+            border: 2px solid var(--tg-theme-secondary-bg-color);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .option-button:hover:not(.selected):not(:disabled) {
+            background-color: var(--tg-theme-hint-color);
+            transform: translateY(-1px);
+        }
+        .option-button.selected {
+            background-color: var(--tg-theme-button-color);
+            border-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+        .option-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        .btn-primary {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+        }
+        .btn-primary:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: var(--tg-theme-link-color); /* Use link color for secondary action */
+            color: var(--tg-theme-button-text-color);
+            border: none;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background-color: #e53e3e; /* Red for danger */
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover:not(:disabled) {
+            background-color: #c53030;
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .message-box {
+            background-color: var(--tg-theme-secondary-bg-color);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            font-weight: bold;
+            margin-top: 1rem;
+            display: none;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+            color: var(--tg-theme-text-color);
+        }
+        .message-box.show {
+            display: block;
+        }
+        .message-box.error {
+            background-color: #fef2f2; /* Light red for error */
+            color: #ef4444; /* Dark red text */
+            border: 1px solid #fca5a5;
+        }
+        .message-box.info {
+            background-color: #e0f2fe; /* Light blue for info */
+            color: #3b82f6; /* Dark blue text */
+            border: 1px solid #93c5fd;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 400px) {
+            .game-container {
+                padding: 1rem;
+            }
+            .grid-cell {
+                font-size: 1.8rem;
+            }
+            .option-button {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <button id="back-button" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="logo">💣 Mines</div>
+            <div></div> </div>
+
+        <div class="game-info">
+            <div>Баланс: <span id="user-balance">0.00</span> сом</div>
+            <div>Ставка: <span id="current-bet">0.00</span> сом</div>
+        </div>
+
+        <div class="multiplier-display">
+            Текущий выигрыш: <span id="current-win">0.00</span> сом
+            <div id="next-multiplier"></div>
+        </div>
+
+        <div id="game-grid" class="grid-container">
+            </div>
+
+        <div class="control-panel">
+            <div class="option-group">
+                <label>Ставка:</label>
+                <div id="bet-options" class="option-buttons">
+                    <button class="option-button" data-value="50">50 сом</button>
+                    <button class="option-button" data-value="100">100 сом</button>
+                    <button class="option-button" data-value="500">500 сом</button>
+                    <button class="option-button" data-value="1000">1000 сом</button>
+                </div>
+            </div>
+            <div class="option-group">
+                <label>Мины:</label>
+                <div id="mines-options" class="option-buttons">
+                    <button class="option-button" data-value="3">3 мины</button>
+                    <button class="option-button" data-value="8">8 мин</button>
+                    <button class="option-button" data-value="15">15 мин</button>
+                </div>
+            </div>
+
+            <button id="start-game-btn" class="btn btn-primary">
+                <i class="fas fa-play"></i> Начать игру
+            </button>
+            <button id="collect-win-btn" class="btn btn-secondary" disabled>
+                <i class="fas fa-coins"></i> Забрать
+            </button>
+            <button id="reset-game-btn" class="btn btn-danger" disabled>
+                <i class="fas fa-redo"></i> Сбросить
+            </button>
+        </div>
+
+        <div id="message-box" class="message-box"></div>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp API
+        const TelegramWebApp = window.Telegram.WebApp;
+        TelegramWebApp.ready();
+        TelegramWebApp.expand(); // Expand the WebApp to full screen
+
+        // UI elements
+        const backButton = document.getElementById('back-button');
+        const gameGrid = document.getElementById('game-grid');
+        const betOptions = document.getElementById('bet-options');
+        const minesOptions = document.getElementById('mines-options');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const collectWinBtn = document.getElementById('collect-win-btn');
+        const resetGameBtn = document.getElementById('reset-game-btn');
+        const userBalanceSpan = document.getElementById('user-balance');
+        const currentBetSpan = document.getElementById('current-bet');
+        const currentWinSpan = document.getElementById('current-win');
+        const nextMultiplierDiv = document.getElementById('next-multiplier');
+        const messageBox = document.getElementById('message-box');
+
+        // Game state variables
+        let cells = [];
+        let mines = [];
+        let openedCells = [];
+        let gameStarted = false;
+        let currentBet = 0;
+        let currentWin = 0;
+        let minesCount = 0;
+        const gridSize = 25; // 5x5 grid
+
+        // Multiplier data for specific mine counts (simplified for demonstration)
+        // These values would need careful balancing for a real casino RTP.
+        const multipliers = {
+            3: [1.05, 1.12, 1.20, 1.30, 1.40, 1.55, 1.70, 1.90, 2.10, 2.35, 2.65, 3.00, 3.40, 3.85, 4.35, 4.90, 5.55, 6.25, 7.05, 7.95, 8.95, 10.00], // Max 22 stars
+            8: [1.10, 1.25, 1.45, 1.65, 1.90, 2.15, 2.45, 2.80, 3.20, 3.65, 4.15, 4.70, 5.35, 6.05, 6.85, 7.75, 8.75], // Max 17 stars
+            15: [1.20, 1.50, 1.90, 2.40, 3.00, 3.80, 4.80, 6.00, 7.60, 9.60] // Max 10 stars
+        };
+
+        // Get initial data from Telegram WebApp.initDataUnsafe (or URL params for testing)
+        let userId = '';
+        let userBalance = 0;
+        let langCode = 'ru'; // Default language
+
+        if (TelegramWebApp.initDataUnsafe && TelegramWebApp.initDataUnsafe.user) {
+            userId = TelegramWebApp.initDataUnsafe.user.id;
+            // Balance is typically passed from bot via URL parameter for initial display
+            // For security, actual balance operations should be server-side.
+            const urlParams = new URLSearchParams(window.location.search);
+            userBalance = parseFloat(urlParams.get('balance')) || 0;
+            langCode = urlParams.get('lang') || 'ru';
+        } else {
+            // Fallback for local testing outside Telegram (e.g., direct browser open)
+            console.warn("Telegram WebApp API not available. Using default values for testing.");
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = urlParams.get('user_id') || 'test_user_123';
+            userBalance = parseFloat(urlParams.get('balance')) || 1000; // Default balance for testing
+            langCode = urlParams.get('lang') || 'ru';
+        }
+
+        // Set initial balance display
+        userBalanceSpan.textContent = userBalance.toFixed(2);
+
+        /**
+         * Displays a message in the message box.
+         * @param {string} msg - The message to display.
+         * @param {'info'|'error'} type - The type of message (for styling).
+         */
+        function showMessage(msg, type = 'info') {
+            messageBox.textContent = msg;
+            messageBox.className = `message-box show ${type}`;
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000);
+        }
+
+        /**
+         * Calculates the multiplier based on mines count and opened safe cells.
+         * @param {number} mines - The number of mines in the game.
+         * @param {number} openedStars - The number of safe cells opened.
+         * @returns {number} The multiplier.
+         */
+        function getMultiplier(mines, openedStars) {
+            if (openedStars === 0 || !multipliers[mines] || openedStars > multipliers[mines].length) {
+                return 0;
+            }
+            return multipliers[mines][openedStars - 1];
+        }
+
+        /**
+         * Initializes or resets the game grid.
+         */
+        function initializeGrid() {
+            gameGrid.innerHTML = '';
+            cells = [];
+            for (let i = 0; i < gridSize; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('grid-cell');
+                cell.dataset.index = i;
+                cell.addEventListener('click', handleCellClick);
+                gameGrid.appendChild(cell);
+                cells.push(cell);
+            }
+        }
+
+        /**
+         * Randomly places mines on the grid.
+         */
+        function placeMines() {
+            mines = [];
+            const allCells = Array.from({ length: gridSize }, (_, i) => i);
+            while (mines.length < minesCount) {
+                const randomIndex = Math.floor(Math.random() * allCells.length);
+                const minePosition = allCells.splice(randomIndex, 1)[0];
+                mines.push(minePosition);
+            }
+        }
+
+        /**
+         * Starts a new game of Mines.
+         */
+        function startGame() {
+            const selectedBetButton = betOptions.querySelector('.option-button.selected');
+            const selectedMinesButton = minesOptions.querySelector('.option-button.selected');
+
+            if (!selectedBetButton) {
+                showMessage('Пожалуйста, выберите ставку.', 'error');
+                return;
+            }
+            if (!selectedMinesButton) {
+                showMessage('Пожалуйста, выберите количество мин.', 'error');
+                return;
+            }
+
+            currentBet = parseFloat(selectedBetButton.dataset.value);
+            minesCount = parseInt(selectedMinesButton.dataset.value);
+
+            if (currentBet > userBalance) {
+                showMessage(`Недостаточно средств. Ваш баланс: ${userBalance.toFixed(2)} сом.`, 'error');
+                return;
+            }
+
+            // Deduct bet from local balance immediately for UI responsiveness
+            userBalance -= currentBet;
+            userBalanceSpan.textContent = userBalance.toFixed(2);
+            currentBetSpan.textContent = currentBet.toFixed(2);
+            currentWin = 0;
+            currentWinSpan.textContent = currentWin.toFixed(2);
+            nextMultiplierDiv.textContent = ''; // Clear next multiplier
+
+            gameStarted = true;
+            openedCells = [];
+            initializeGrid();
+            placeMines();
+
+            // Disable bet/mines selection and start button
+            startGameBtn.disabled = true;
+            disableOptionButtons(true);
+            collectWinBtn.disabled = true; // Initially disabled, enabled after first star
+            resetGameBtn.disabled = false;
+
+            showMessage('Игра началась! Открывайте ячейки.', 'info');
+        }
+
+        /**
+         * Handles a click on a grid cell.
+         * @param {Event} event - The click event.
+         */
+        function handleCellClick(event) {
+            if (!gameStarted) return;
+
+            const cell = event.target;
+            const index = parseInt(cell.dataset.index);
+
+            if (openedCells.includes(index)) {
+                return; // Already opened
+            }
+
+            openedCells.push(index);
+            cell.classList.add('opened');
+            cell.removeEventListener('click', handleCellClick); // Prevent re-clicking
+
+            if (mines.includes(index)) {
+                // It's a mine! Game over.
+                cell.classList.add('mine');
+                cell.innerHTML = '<i class="fas fa-bomb mine-icon"></i>';
+                endGame(false); // Lost
+            } else {
+                // It's a star!
+                cell.innerHTML = '<i class="fas fa-star star-icon"></i>';
+                const multiplier = getMultiplier(minesCount, openedCells.length);
+                if (multiplier > 0) {
+                    currentWin = currentBet * multiplier;
+                    currentWinSpan.textContent = currentWin.toFixed(2);
+                    collectWinBtn.disabled = false; // Enable collect button
+                    updateNextMultiplierDisplay();
+                } else {
+                    console.error("Multiplier is 0 or undefined for opened stars:", openedCells.length);
+                }
+
+                if (openedCells.length === gridSize - minesCount) {
+                    // All stars found! Automatic win.
+                    endGame(true);
+                }
+            }
+        }
+
+        /**
+         * Updates the display for the next potential multiplier.
+         */
+        function updateNextMultiplierDisplay() {
+            const nextStars = openedCells.length + 1;
+            const nextMultiplier = getMultiplier(minesCount, nextStars);
+            if (nextMultiplier > 0 && nextStars <= gridSize - minesCount) {
+                nextMultiplierDiv.textContent = `Следующий множитель: x${nextMultiplier.toFixed(2)}`;
+            } else {
+                nextMultiplierDiv.textContent = 'Все звезды найдены!';
+            }
+        }
+
+        /**
+         * Ends the current game.
+         * @param {boolean} won - True if the player won, false if lost.
+         */
+        function endGame(won) {
+            gameStarted = false;
+            startGameBtn.disabled = false;
+            disableOptionButtons(false); // Enable bet/mines selection
+            collectWinBtn.disabled = true; // Disable collect button after game end
+            resetGameBtn.disabled = false;
+
+            // Reveal all mines
+            cells.forEach((cell, index) => {
+                cell.removeEventListener('click', handleCellClick);
+                cell.classList.add('disabled'); // Disable further clicks
+                if (mines.includes(index) && !cell.classList.contains('mine')) {
+                    cell.classList.add('revealed-mine');
+                    cell.innerHTML = '<i class="fas fa-bomb mine-icon"></i>';
+                }
+            });
+
+            if (won) {
+                showMessage(`🎉 Вы выиграли ${currentWin.toFixed(2)} сом!`, 'info');
+                sendResultToBot('win', currentWin);
+            } else {
+                showMessage(`💥 Вы наткнулись на мину! Вы проиграли ${currentBet.toFixed(2)} сом.`, 'error');
+                sendResultToBot('lose', 0); // Lost, won_amount is 0
+            }
+        }
+
+        /**
+         * Collects the current winnings and ends the game.
+         */
+        function collectWin() {
+            if (!gameStarted) return;
+
+            gameStarted = false;
+            startGameBtn.disabled = false;
+            disableOptionButtons(false);
+            collectWinBtn.disabled = true;
+            resetGameBtn.disabled = false;
+
+            // Reveal all mines (optional, but good for transparency)
+            cells.forEach((cell, index) => {
+                cell.removeEventListener('click', handleCellClick);
+                cell.classList.add('disabled');
+                if (mines.includes(index) && !cell.classList.contains('mine')) {
+                    cell.classList.add('revealed-mine');
+                    cell.innerHTML = '<i class="fas fa-bomb mine-icon"></i>';
+                }
+            });
+
+            showMessage(`💰 Вы забрали ${currentWin.toFixed(2)} сом!`, 'info');
+            sendResultToBot('win', currentWin);
+        }
+
+        /**
+         * Resets the game to its initial state.
+         */
+        function resetGame() {
+            gameStarted = false;
+            currentBet = 0;
+            currentWin = 0;
+            minesCount = 0;
+            openedCells = [];
+            mines = [];
+
+            currentBetSpan.textContent = currentBet.toFixed(2);
+            currentWinSpan.textContent = currentWin.toFixed(2);
+            nextMultiplierDiv.textContent = '';
+            messageBox.classList.remove('show');
+
+            startGameBtn.disabled = false;
+            disableOptionButtons(false);
+            collectWinBtn.disabled = true;
+            resetGameBtn.disabled = true;
+
+            // Deselect all option buttons
+            betOptions.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('selected'));
+            minesOptions.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('selected'));
+
+            initializeGrid(); // Re-render empty grid
+            userBalanceSpan.textContent = userBalance.toFixed(2);
+        }
+
+        /**
+         * Sends game result data back to the Telegram bot.
+         * @param {'win'|'lose'} result - The outcome of the game.
+         * @param {number} wonAmount - The amount won (0 if lost).
+         */
+        function sendResultToBot(result, wonAmount) {
+            TelegramWebApp.sendData(JSON.stringify({
+                result: result,
+                bet: currentBet,
+                won_amount: wonAmount
+            }));
+        }
+
+        /**
+         * Handles clicks on bet and mines option buttons.
+         * @param {Event} event - The click event.
+         */
+        function handleOptionButtonClick(event) {
+            const button = event.target;
+            const parentId = button.parentElement.id;
+            const buttons = document.querySelectorAll(`#${parentId} .option-button`);
+
+            buttons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+
+            if (parentId === 'bet-options') {
+                currentBet = parseFloat(button.dataset.value);
+                currentBetSpan.textContent = currentBet.toFixed(2);
+            } else if (parentId === 'mines-options') {
+                minesCount = parseInt(button.dataset.value);
+            }
+        }
+
+        /**
+         * Disables or enables all bet and mines option buttons.
+         * @param {boolean} disable - True to disable, false to enable.
+         */
+        function disableOptionButtons(disable) {
+            betOptions.querySelectorAll('.option-button').forEach(btn => btn.disabled = disable);
+            minesOptions.querySelectorAll('.option-button').forEach(btn => btn.disabled = disable);
+        }
+
+        /**
+         * Applies Telegram theme parameters to CSS variables.
+         */
+        function applyThemeParams() {
+            const themeParams = TelegramWebApp.themeParams;
+            if (themeParams) {
+                document.documentElement.style.setProperty('--tg-theme-bg-color', themeParams.bg_color || '#ffffff');
+                document.documentElement.style.setProperty('--tg-theme-text-color', themeParams.text_color || '#000000');
+                document.documentElement.style.setProperty('--tg-theme-hint-color', themeParams.hint_color || '#888888');
+                document.documentElement.style.setProperty('--tg-theme-link-color', themeParams.link_color || '#2481cc');
+                document.documentElement.style.setProperty('--tg-theme-button-color', themeParams.button_color || '#2481cc');
+                document.documentElement.style.setProperty('--tg-theme-button-text-color', themeParams.button_text_color || '#ffffff');
+                document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', themeParams.secondary_bg_color || '#efefef');
+
+                // Custom colors derived from Telegram theme or defaults
+                document.documentElement.style.setProperty('--tg-theme-header-bg-color', themeParams.secondary_bg_color || '#f0f0f0');
+                document.documentElement.style.setProperty('--tg-theme-cell-bg-color', themeParams.secondary_bg_color || '#e0e0e0');
+                document.documentElement.style.setProperty('--tg-theme-cell-border-color', themeParams.hint_color || '#cccccc');
+
+                // Fixed colors for game elements for visual consistency
+                document.documentElement.style.setProperty('--tg-theme-star-color', '#fbd38d');
+                document.documentElement.style.setProperty('--tg-theme-mine-color', '#a0aec0');
+                document.documentElement.style.setProperty('--tg-theme-opened-star-bg', '#38a169');
+                document.documentElement.style.setProperty('--tg-theme-mine-bg', '#e53e3e');
+            }
+        }
+
+        // Event Listeners
+        startGameBtn.addEventListener('click', startGame);
+        collectWinBtn.addEventListener('click', collectWin);
+        resetGameBtn.addEventListener('click', resetGame);
+        backButton.addEventListener('click', () => TelegramWebApp.close()); // Close WebApp on back button click
+
+        betOptions.querySelectorAll('.option-button').forEach(button => {
+            button.addEventListener('click', handleOptionButtonClick);
+        });
+        minesOptions.querySelectorAll('.option-button').forEach(button => {
+            button.addEventListener('click', handleOptionButtonClick);
+        });
+
+        // Telegram WebApp theme change listener
+        TelegramWebApp.onEvent('themeChanged', applyThemeParams);
+
+        // Initial setup on page load
+        applyThemeParams(); // Apply theme immediately
+        initializeGrid();
+        resetGame(); // Set initial state and clear grid
+
+        // Select the first bet and mines option by default
+        betOptions.querySelector('.option-button')?.click();
+        minesOptions.querySelector('.option-button')?.click();
+    </script>
+</body>
+</html>
