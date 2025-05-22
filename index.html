@@ -140,7 +140,7 @@
         }
         .grid-cell:hover:not(.opened):not(.disabled) {
             background-color: var(--tg-theme-hint-color);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
             box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
         }
         .grid-cell.opened {
@@ -607,12 +607,15 @@
             });
 
             if (won) {
+                userBalance += currentWin; // Update local balance for win
                 showMessage(`🎉 Вы выиграли ${currentWin.toFixed(2)} сом!`, 'info');
                 sendResultToBot('win', currentWin);
             } else {
+                // Balance was already deducted at game start for a loss
                 showMessage(`💥 Вы наткнулись на мину! Вы проиграли ${currentBet.toFixed(2)} сом.`, 'error');
                 sendResultToBot('lose', 0); // Lost, won_amount is 0
             }
+            userBalanceSpan.textContent = userBalance.toFixed(2); // Update balance display
         }
 
         /**
@@ -637,6 +640,8 @@
                 }
             });
 
+            userBalance += currentWin; // Update local balance for collected win
+            userBalanceSpan.textContent = userBalance.toFixed(2); // Update balance display
             showMessage(`💰 Вы забрали ${currentWin.toFixed(2)} сом!`, 'info');
             sendResultToBot('win', currentWin);
         }
@@ -667,7 +672,11 @@
             minesOptions.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('selected'));
 
             initializeGrid(); // Re-render empty grid
-            userBalanceSpan.textContent = userBalance.toFixed(2);
+            // userBalanceSpan.textContent = userBalance.toFixed(2); // Balance already updated by endGame or collectWin
+            
+            // Re-select default options
+            betOptions.querySelector('.option-button')?.click();
+            minesOptions.querySelector('.option-button')?.click();
         }
 
         /**
